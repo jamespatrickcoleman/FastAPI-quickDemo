@@ -28,6 +28,25 @@ class Item(BaseModel):
     )
     description: Optional[str] = Field(None, title="Item Description", description="A brief description of the item")
 
+class ItemResponse(BaseModel):
+    message: str
+    item: str
+
+class ItemListResponse(BaseModel):
+    original_items: list[str]
+    randomized_items: list[str]
+    count: int
+
+class ItemUpdateResponse(BaseModel):
+    message: str
+    old_name: str
+    new_name: str
+
+class ItemDeleteResponse(BaseModel):
+    message: str
+    deleted_item: str
+    remaining_count: int
+
 @app.get("/")
 def home():
     """Home endpoint returning a welcome message."""
@@ -65,54 +84,55 @@ def get_random_number_between(
         "random_number": random.randint(min_value, max_value)
     }
 
-@app.get("/items")
+@app.get("/items", response_model=ItemListResponse)
 def get_randomized_items():
     """Retrieve a randomized list of items."""
     randomized_items = items_db.copy()
     random.shuffle(randomized_items)
-    return {
-        "original_items": items_db,
-        "items": randomized_items,
-        "count": len(items_db)
-    }
+    return ItemListResponse(
+        original_items=items_db,
+        randomized_items=randomized_items,
+        count=len(items_db)
+    )
 
-@app.post("/items")
-def add_item(body: dict):
+
+@app.post("/items", response_model=ItemResponse)
+def add_item(item: Item):
     """Create a new item with a name and optional description."""
-    # item_name = body.get("name")
-    # if not item_name:
-    #     raise HTTPException(status_code=400, detail="Item 'name' is required")
-
     if item_name in items_db:
         raise HTTPException(status_code=400, detail="Item already exists")
 
     items_db.append(item_name)
-    return {'message': f"Item '{item_name}' added successfully."}
+    return ItemResponse(
+        message="Item added successfully.",
+        item=item.name
+    )
 
-@app.put("/items/{update_item_name}")
+@app.put("/items/{update_item_name}", response_model=ItemUpdateResponse)
 def update_item(update_item_name: str, item: Item):
     """Update an existing item's name."""
     if update_item_name not in items_db:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    # new_name = body.get("name")
-    # if not new_name:
-    #     raise HTTPException(status_code=400, detail="New item 'name' is required")
     if item.name in items_db:
         raise HTTPException(status_code=400, detail="An item with the new name already exists")
 
     index = items_db.index(update_item_name)
     items_db[index] = item.name
-    return {'message': f"Item '{update_item_name}' updated to '{item.name}' successfully."}
+    return 
 
-@app.delete("/items/{delete_item_name}")
+@app.delete("/items/{delete_item_name}", response_model=ItemDeleteResponse)
 def delete_item(delete_item_name: str):
     """Delete an item by its name."""
     if delete_item_name not in items_db:
         raise HTTPException(status_code=404, detail="Item not found")
 
     items_db.remove(delete_item_name)
-    return {'message': f"Item '{delete_item_name}' deleted successfully."}
+    return ItemDeleteResponse(
+        message="Item deleted successfully.",
+        deleted_item=delete_item_name,
+        remaining_count=len(items_db)   
+    )
 
 @app.get("/books")
 def get_books(limit: Optional[int] = None):
